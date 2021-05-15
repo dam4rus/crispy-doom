@@ -57,3 +57,9 @@ GPATH
 GRTAGS
 GTAGS
 /HTML/
+
+# Rust
+Cargo.lock
+/target
+*.wad
+.vscode

@@ -46,7 +46,10 @@
 #include "dstrings.h"
 
 #include "am_map.h"
+#include "rs/am_map.h"
 extern boolean inhelpscreens; // [crispy]
+
+static Automap* automap = NULL;
 
 
 // For use if I do walls with outsides/insides
@@ -345,6 +348,9 @@ void AM_activateNewScale(void)
     m_y -= m_h/2;
     m_x2 = m_x + m_w;
     m_y2 = m_y + m_h;
+
+    fprintf(stderr, "%lix%li at %li, %li \n", m_w, m_h, m_x, m_y);
+    automap_activate_new_scale(automap, f_w, f_h, scale_ftom);
 }
 
 //
@@ -537,9 +543,13 @@ void AM_initVariables(void)
     old_m_w = m_w;
     old_m_h = m_h;
 
+    if (automap == NULL) {
+        automap = automap_new(plr->mo->x, plr->mo->y, f_w, f_h, scale_ftom);
+    }
+    automap_change_window_location(automap, crispy->automaprotate, min_x, min_y, max_x, max_y);
+
     // inform the status bar of the change
     ST_Responder(&st_notify);
-
 }
 
 //
@@ -650,6 +660,12 @@ void AM_LevelInit(boolean reinit)
 //
 void AM_Stop (void)
 {
+    if (automap != NULL) {
+        automap_free(automap);
+        automap = NULL;
+    }
+
+    fprintf(stderr, "AM_Stop\n");
     static event_t st_notify = { 0, ev_keyup, AM_MSGEXITED, 0 };
 
     AM_unloadPics();
@@ -663,8 +679,9 @@ void AM_Stop (void)
 //
 // [crispy] moved here for extended savegames
 static int lastlevel = -1, lastepisode = -1;
-void AM_Start (void)
+static void AM_Start (void)
 {
+    fprintf(stderr, "AM_Start\n");
     if (!stopped) AM_Stop();
     stopped = false;
     if (lastlevel != gamemap || lastepisode != gameepisode)
@@ -673,6 +690,7 @@ void AM_Start (void)
 	lastlevel = gamemap;
 	lastepisode = gameepisode;
     }
+
     AM_initVariables();
     AM_loadPics();
 }
