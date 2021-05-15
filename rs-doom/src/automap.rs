@@ -146,13 +146,7 @@ impl Automap {
     }
 
     fn change_window_location(&mut self, rotate: bool, boundaries: MapBox, map_angle: Angle) {
-        let pan_increase_keyboard = self
-            .pan_increase_keyboard
-            .filter(|vec| *vec != MapVector::zero());
-        let pan_increase_mouse = self
-            .pan_increase_mouse
-            .filter(|vec| *vec != MapVector::zero());
-        let mut pan = match (pan_increase_keyboard, pan_increase_mouse) {
+        let mut pan = match (self.pan_increase_keyboard, self.pan_increase_mouse) {
             (None, None) => return,
             (Some(pan), None) | (None, Some(pan)) => pan,
             (Some(pan_keyboard), Some(pan_mouse)) => pan_keyboard + pan_mouse,
@@ -182,7 +176,8 @@ impl Automap {
 
             new_position
         };
-        println!("{:#?}", self.rect);
+
+        // println!("{:#?}", self.rect);
     }
 
     fn rotate(&mut self, point: &MapVector, map_angle: Angle) -> MapVector {
@@ -198,14 +193,19 @@ impl Automap {
     fn activate_new_scale(
         &mut self,
         window_size: &FrameBufferSize,
-        scale_frame_buffer_to_map: FixedPoint<FrameBufferUnit>,
+        scale_frame_buffer_to_map: FrameBufferFixedPoint,
     ) {
         let translate_vector = MapVector::new(self.rect.size.width / 2, self.rect.size.height / 2);
         self.rect.origin += translate_vector;
         self.rect.size = scale_frame_buffer_to_map.transform_size_to_map(window_size);
         self.rect.origin -= translate_vector;
 
-        println!("rect after scale: {:#?}", self.rect)
+        // println!("rect after scale: {:#?}", self.rect)
+    }
+
+    fn update_panning(&mut self, pan_increase_keyboard: Option<MapVector>, pan_increase_mouse: Option<MapVector>) {
+        self.pan_increase_keyboard = pan_increase_keyboard;
+        self.pan_increase_mouse = pan_increase_mouse;
     }
 }
 
@@ -264,4 +264,28 @@ pub unsafe extern "C" fn automap_activate_new_scale(
             &FrameBufferSize::new(window_width, window_height),
             FrameBufferFixedPoint::from(scale_frame_buffer_to_map),
         )
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn automap_update_panning(
+    automap: *mut Automap,
+    pan_increase_keyboard_x: i64,
+    pan_increase_keyboard_y: i64,
+    pan_increase_mouse_x: i64,
+    pan_increase_mouse_y: i64,
+) {
+    let pan_increase_keyboard = match (pan_increase_keyboard_x, pan_increase_keyboard_y) {
+        (0, 0) => None,
+        (x, y) => Some(MapVector::new(x, y)),
+    };
+
+    let pan_increase_mouse = match (pan_increase_mouse_x, pan_increase_mouse_y) {
+        (0, 0) => None,
+        (x, y) => Some(MapVector::new(x, y)),
+    };
+
+    automap
+        .as_mut()
+        .expect("null passed as Automap")
+        .update_panning(pan_increase_keyboard, pan_increase_mouse);
 }

@@ -939,6 +939,10 @@ AM_Responder
         }
     }
 
+    if (automap != NULL)
+    {
+        automap_update_panning(automap, m_paninc.x, m_paninc.y, m_paninc2.x, m_paninc.y);
+    }
     return rc;
 
 }

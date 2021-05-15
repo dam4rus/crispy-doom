@@ -24,3 +24,9 @@ void automap_activate_new_scale(struct Automap *automap,
                                 int32_t window_width,
                                 int32_t window_height,
                                 int32_t scale_frame_buffer_to_map);
+
+void automap_update_panning(struct Automap *automap,
+                            int64_t pan_increase_keyboard_x,
+                            int64_t pan_increase_keyboard_y,
+                            int64_t pan_increase_mouse_x,
+                            int64_t pan_increase_mouse_y);
