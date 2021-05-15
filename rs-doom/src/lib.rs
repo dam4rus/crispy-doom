@@ -3,4 +3,5 @@
 #![allow(non_snake_case)]
 // include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-mod am_map;
+mod automap;
+mod tables;

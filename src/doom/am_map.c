@@ -315,6 +315,11 @@ static void AM_rotatePoint (mpoint_t *pt);
 static mpoint_t mapcenter;
 static angle_t mapangle;
 
+static void print_rect()
+{
+    fprintf(stderr, "%lix%li at %li, %li \n", m_w, m_h, m_x, m_y);
+}
+
 // Calculates the slope and slope according to the x-axis of a line
 // segment in map coordinates (with the upright y-axis n' all) so
 // that it can be used with the brain-dead drawing stuff.
@@ -349,7 +354,7 @@ void AM_activateNewScale(void)
     m_x2 = m_x + m_w;
     m_y2 = m_y + m_h;
 
-    fprintf(stderr, "%lix%li at %li, %li \n", m_w, m_h, m_x, m_y);
+    print_rect();
     automap_activate_new_scale(automap, f_w, f_h, scale_ftom);
 }
 
@@ -489,6 +494,9 @@ void AM_changeWindowLoc(void)
 
     // [crispy] reset after moving with the mouse
     m_paninc2.x = m_paninc2.y = 0;
+
+    print_rect();
+    automap_change_window_location(automap, crispy->automaprotate, min_x, min_y, max_x, max_y);
 }
 
 
@@ -533,6 +541,10 @@ void AM_initVariables(void)
         }
     }
 
+    if (automap == NULL) {
+        automap = automap_new(plr->mo->x, plr->mo->y, f_w, f_h, scale_ftom);
+    }
+
     m_x = plr->mo->x - m_w/2;
     m_y = plr->mo->y - m_h/2;
     AM_changeWindowLoc();
@@ -542,11 +554,6 @@ void AM_initVariables(void)
     old_m_y = m_y;
     old_m_w = m_w;
     old_m_h = m_h;
-
-    if (automap == NULL) {
-        automap = automap_new(plr->mo->x, plr->mo->y, f_w, f_h, scale_ftom);
-    }
-    automap_change_window_location(automap, crispy->automaprotate, min_x, min_y, max_x, max_y);
 
     // inform the status bar of the change
     ST_Responder(&st_notify);

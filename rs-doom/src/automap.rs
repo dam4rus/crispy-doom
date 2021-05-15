@@ -1,5 +1,11 @@
 use euclid::{Box2D, Point2D, Rect, Size2D, UnknownUnit, Vector2D};
-use std::{convert::TryFrom, marker::PhantomData};
+use std::{
+    convert::TryFrom,
+    marker::PhantomData,
+    ops::{Div, Mul},
+};
+
+use crate::tables::{Angle, fine_cosine, fine_sine};
 
 /* Frame buffer coordinate unit */
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,15 +27,45 @@ type MapBox = Box2D<i64, MapUnit>;
 /* FixedPoint arithmetic */
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-struct FixedPoint<T>(i32, PhantomData<T>);
+pub struct FixedPoint<T>(pub i32, PhantomData<T>);
 
-type FrameBufferFixed = FixedPoint<FrameBufferUnit>;
+type FrameBufferFixedPoint = FixedPoint<FrameBufferUnit>;
+type MapFixedPoint = FixedPoint<MapUnit>;
 
 impl<T> FixedPoint<T> {
-    const BITS: i32 = 16;
+    const FRACTION_BITS: i32 = 16;
 
     fn unit() -> Self {
-        Self(1 << Self::BITS, PhantomData)
+        Self(1 << Self::FRACTION_BITS, PhantomData)
+    }
+}
+
+impl<T> Mul<FixedPoint<T>> for FixedPoint<T> {
+    type Output = Self;
+
+    fn mul(self, rhs: FixedPoint<T>) -> Self::Output {
+        Self::from(
+            i32::try_from((self.0 as i64 * rhs.0 as i64) >> Self::FRACTION_BITS)
+                .expect("multiplication of fixed points wouldn't fit into i32"),
+        )
+    }
+}
+
+impl<T> Div<FixedPoint<T>> for FixedPoint<T> {
+    type Output = Self;
+
+    fn div(self, rhs: FixedPoint<T>) -> Self::Output {
+        let result = if (self.0.abs() >> 14) >= rhs.0.abs() {
+            if (self.0 ^ rhs.0) < 0 {
+                i32::MIN
+            } else {
+                i32::MAX
+            }
+        } else {
+            let value = ((self.0 as i64) << Self::FRACTION_BITS) / rhs.0 as i64;
+            i32::try_from(value).expect("result of div of fixed points woudln't fit into i32")
+        };
+        Self::from(result)
     }
 }
 
@@ -39,19 +75,22 @@ impl<T> From<i32> for FixedPoint<T> {
     }
 }
 
-impl FrameBufferFixed {
+impl<T> Into<i32> for FixedPoint<T> {
+    fn into(self) -> i32 {
+        self.0
+    }
+}
+
+impl FrameBufferFixedPoint {
     fn transform_to_map(&self, value: i32) -> i32 {
-        i32::try_from((((value as i64) << Self::BITS) * i64::from(self.0)) >> Self::BITS).expect(
-            format!(
-                "value wouldn't fit into i32 after converting to map unit: {}",
-                value
-            )
-            .as_str(),
-        )
+        let transformed_value =
+            (((value as i64) << Self::FRACTION_BITS) * i64::from(self.0)) >> Self::FRACTION_BITS;
+        i32::try_from(transformed_value)
+            .expect("value wouldn't fit into i32 after converting to map unit")
     }
 
     fn transform_to_map_i64(&self, value: i64) -> i64 {
-        ((value << Self::BITS) * i64::from(self.0)) >> Self::BITS
+        ((value << Self::FRACTION_BITS) * i64::from(self.0)) >> Self::FRACTION_BITS
     }
 
     fn transform_size_to_map(self, frame_buffer_size: &FrameBufferSize) -> MapSize {
@@ -82,7 +121,7 @@ impl Automap {
     fn new(
         player_position: &Point2D<i32, UnknownUnit>,
         window_size: &FrameBufferSize,
-        scale_frame_buffer_to_map: FrameBufferFixed,
+        scale_frame_buffer_to_map: FrameBufferFixedPoint,
     ) -> Self {
         let width = scale_frame_buffer_to_map.transform_to_map(window_size.width);
         let height = scale_frame_buffer_to_map.transform_to_map(window_size.height);
@@ -106,14 +145,14 @@ impl Automap {
         }
     }
 
-    fn change_window_location(&mut self, rotate: bool, boundaries: MapBox) {
+    fn change_window_location(&mut self, rotate: bool, boundaries: MapBox, map_angle: Angle) {
         let pan_increase_keyboard = self
             .pan_increase_keyboard
             .filter(|vec| *vec != MapVector::zero());
         let pan_increase_mouse = self
             .pan_increase_mouse
             .filter(|vec| *vec != MapVector::zero());
-        let pan = match (pan_increase_keyboard, pan_increase_mouse) {
+        let mut pan = match (pan_increase_keyboard, pan_increase_mouse) {
             (None, None) => return,
             (Some(pan), None) | (None, Some(pan)) => pan,
             (Some(pan_keyboard), Some(pan_mouse)) => pan_keyboard + pan_mouse,
@@ -123,7 +162,7 @@ impl Automap {
         self.follower_old_location = None;
 
         if rotate {
-            // TODO: implement
+            pan = self.rotate(&pan, map_angle);
         }
 
         self.pan_increase_mouse = None;
@@ -143,6 +182,17 @@ impl Automap {
 
             new_position
         };
+        println!("{:#?}", self.rect);
+    }
+
+    fn rotate(&mut self, point: &MapVector, map_angle: Angle) -> MapVector {
+        let fixed_x = MapFixedPoint::from(i32::try_from(point.x).unwrap());
+        let fixed_y = MapFixedPoint::from(i32::try_from(point.y).unwrap());
+        let fixed_sine = MapFixedPoint::from(fine_sine(map_angle));
+        let fixed_cosine = MapFixedPoint::from(fine_cosine(map_angle));
+        let new_x = (fixed_x * fixed_cosine).0 - (fixed_y * fixed_sine).0;
+        let new_y = (fixed_x * fixed_sine).0 + (fixed_y * fixed_cosine).0;
+        MapVector::new(new_x as i64, new_y as i64)
     }
 
     fn activate_new_scale(
@@ -172,7 +222,7 @@ pub extern "C" fn automap_new(
         &FrameBufferSize::new(window_width, window_height),
         FixedPoint::from(scale_frame_buffer_to_map),
     );
-    println!("{:#?}", automap);
+    // println!("{:#?}", automap);
     Box::into_raw(Box::new(automap))
 }
 
@@ -196,6 +246,7 @@ pub unsafe extern "C" fn automap_change_window_location(
         .change_window_location(
             rotate,
             Box2D::new(Point2D::new(min_x, min_y), Point2D::new(max_x, max_y)),
+            0,
         );
 }
 
@@ -211,6 +262,6 @@ pub unsafe extern "C" fn automap_activate_new_scale(
         .expect("null passed as Automap")
         .activate_new_scale(
             &FrameBufferSize::new(window_width, window_height),
-            FrameBufferFixed::from(scale_frame_buffer_to_map),
+            FrameBufferFixedPoint::from(scale_frame_buffer_to_map),
         )
 }
