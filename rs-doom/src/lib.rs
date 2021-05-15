@@ -4,4 +4,7 @@
 // include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 mod automap;
+mod capi;
+mod coords;
+mod fixed;
 mod tables;

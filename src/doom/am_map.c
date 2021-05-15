@@ -318,6 +318,7 @@ static angle_t mapangle;
 static void print_rect()
 {
     fprintf(stderr, "%lix%li at %li, %li \n", m_w, m_h, m_x, m_y);
+    automap_print_rect(automap);
 }
 
 // Calculates the slope and slope according to the x-axis of a line
@@ -354,8 +355,9 @@ void AM_activateNewScale(void)
     m_x2 = m_x + m_w;
     m_y2 = m_y + m_h;
 
-    print_rect();
     automap_activate_new_scale(automap, f_w, f_h, scale_ftom);
+    fprintf(stderr, "AM_activateNewScale\n");
+    print_rect();
 }
 
 //
@@ -367,6 +369,8 @@ void AM_saveScaleAndLoc(void)
     old_m_y = m_y;
     old_m_w = m_w;
     old_m_h = m_h;
+
+    automap_save_rect(automap);
 }
 
 //
@@ -387,6 +391,10 @@ void AM_restoreScaleAndLoc(void)
     }
     m_x2 = m_x + m_w;
     m_y2 = m_y + m_h;
+
+    automap_restore_rect(automap, plr->mo->x, plr->mo->y);
+    fprintf(stderr, "AM_restoreScaleAndLoc\n");
+    print_rect();
 
     // Change the scaling multipliers
     scale_mtof = FixedDiv(f_w<<FRACBITS, m_w);
@@ -495,8 +503,9 @@ void AM_changeWindowLoc(void)
     // [crispy] reset after moving with the mouse
     m_paninc2.x = m_paninc2.y = 0;
 
-    print_rect();
     automap_change_window_location(automap, crispy->automaprotate, min_x, min_y, max_x, max_y);
+    fprintf(stderr, "AM_changeWindowLoc\n");
+    print_rect();
 }
 
 
@@ -548,6 +557,8 @@ void AM_initVariables(void)
     m_x = plr->mo->x - m_w/2;
     m_y = plr->mo->y - m_h/2;
     AM_changeWindowLoc();
+
+    print_rect();
 
     // for saving & restoring
     old_m_x = m_x;
@@ -982,12 +993,17 @@ void AM_doFollowPlayer(void)
 
     if (f_oldloc.x != plr->mo->x || f_oldloc.y != plr->mo->y)
     {
-	m_x = FTOM(MTOF(plr->mo->x)) - m_w/2;
-	m_y = FTOM(MTOF(plr->mo->y)) - m_h/2;
+	// m_x = FTOM(MTOF(plr->mo->x)) - m_w/2;
+	// m_y = FTOM(MTOF(plr->mo->y)) - m_h/2;
+    m_x = plr->mo->x - m_w / 2;
+    m_y = plr->mo->y - m_h / 2;
 	m_x2 = m_x + m_w;
 	m_y2 = m_y + m_h;
 	f_oldloc.x = plr->mo->x;
 	f_oldloc.y = plr->mo->y;
+    automap_follow_player(automap, plr->mo->x, plr->mo->y);
+    fprintf(stderr, "AM_doFollowPlayer\n");
+    print_rect();
 
 	//  m_x = FTOM(MTOF(plr->mo->x - m_w/2));
 	//  m_y = FTOM(MTOF(plr->mo->y - m_h/2));

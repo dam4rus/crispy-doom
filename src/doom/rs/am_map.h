@@ -30,3 +30,15 @@ void automap_update_panning(struct Automap *automap,
                             int64_t pan_increase_keyboard_y,
                             int64_t pan_increase_mouse_x,
                             int64_t pan_increase_mouse_y);
+
+void automap_save_rect(struct Automap *automap);
+
+void automap_restore_rect(struct Automap *automap,
+                          int32_t player_position_x,
+                          int32_t player_position_y);
+
+void automap_follow_player(struct Automap *automap,
+                           int32_t player_position_x,
+                           int32_t player_position_y);
+
+void automap_print_rect(const struct Automap *automap);
