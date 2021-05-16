@@ -18,6 +18,7 @@
 
 
 #include <stdio.h>
+#include <assert.h>
 
 #include "deh_main.h"
 
@@ -114,8 +115,8 @@ static Automap* automap = NULL;
 #define FTOM(x) (((int64_t)((x)<<FRACBITS) * scale_ftom) >> FRACBITS)
 #define MTOF(x) ((((int64_t)(x) * scale_mtof) >> FRACBITS)>>FRACBITS)
 // translates between frame-buffer and map coordinates
-#define CXMTOF(x)  (f_x + MTOF((x)-m_x))
-#define CYMTOF(y)  (f_y + (f_h - MTOF((y)-m_y)))
+#define CXMTOF(x, m_x)  (f_x + MTOF((x)-m_x))
+#define CYMTOF(y, m_y)  (f_y + (f_h - MTOF((y)-m_y)))
 
 // the following is crap
 #define LINE_NEVERSEE ML_DONTDRAW
@@ -321,6 +322,16 @@ static void print_rect()
     automap_print_rect(automap);
 }
 
+static void assert_rect_equals()
+{
+    int64_t x, y, width, height;
+    automap_get_rect(automap, &x, &y, &width, &height);
+    assert(x == m_x);
+    assert(y == m_y);
+    assert(width == m_w);
+    assert(height == m_h);
+}
+
 // Calculates the slope and slope according to the x-axis of a line
 // segment in map coordinates (with the upright y-axis n' all) so
 // that it can be used with the brain-dead drawing stuff.
@@ -346,6 +357,7 @@ AM_getIslope
 //
 void AM_activateNewScale(void)
 {
+    fprintf(stderr, "AM_activateNewScale\n");
     m_x += m_w/2;
     m_y += m_h/2;
     m_w = FTOM(f_w);
@@ -356,8 +368,7 @@ void AM_activateNewScale(void)
     m_y2 = m_y + m_h;
 
     automap_activate_new_scale(automap, f_w, f_h, scale_ftom);
-    fprintf(stderr, "AM_activateNewScale\n");
-    print_rect();
+    assert_rect_equals();
 }
 
 //
@@ -365,6 +376,7 @@ void AM_activateNewScale(void)
 //
 void AM_saveScaleAndLoc(void)
 {
+    fprintf(stderr, "AM_restoreScaleAndLoc\n");
     old_m_x = m_x;
     old_m_y = m_y;
     old_m_w = m_w;
@@ -378,7 +390,7 @@ void AM_saveScaleAndLoc(void)
 //
 void AM_restoreScaleAndLoc(void)
 {
-
+    fprintf(stderr, "AM_restoreScaleAndLoc\n");
     m_w = old_m_w;
     m_h = old_m_h;
     if (!followplayer)
@@ -393,8 +405,7 @@ void AM_restoreScaleAndLoc(void)
     m_y2 = m_y + m_h;
 
     automap_restore_rect(automap, plr->mo->x, plr->mo->y);
-    fprintf(stderr, "AM_restoreScaleAndLoc\n");
-    print_rect();
+    assert_rect_equals();
 
     // Change the scaling multipliers
     scale_mtof = FixedDiv(f_w<<FRACBITS, m_w);
@@ -410,8 +421,10 @@ void AM_addMark(void)
     // if not following the player
     if (!(!followplayer && crispy->automapoverlay))
     {
-    markpoints[markpointnum].x = m_x + m_w/2;
-    markpoints[markpointnum].y = m_y + m_h/2;
+    int64_t x, y, width, height;
+    automap_get_rect(automap, &x, &y, &width, &height);
+    markpoints[markpointnum].x = x + width/2;
+    markpoints[markpointnum].y = y + height/2;
     }
     else
     {
@@ -469,6 +482,8 @@ void AM_findMinMaxBoundaries(void)
 //
 void AM_changeWindowLoc(void)
 {
+    fprintf(stderr, "AM_changeWindowLoc\n");
+
     int64_t incx, incy;
 
     if (m_paninc.x || m_paninc.y || m_paninc2.x || m_paninc2.y)
@@ -504,8 +519,7 @@ void AM_changeWindowLoc(void)
     m_paninc2.x = m_paninc2.y = 0;
 
     automap_change_window_location(automap, crispy->automaprotate, min_x, min_y, max_x, max_y);
-    fprintf(stderr, "AM_changeWindowLoc\n");
-    print_rect();
+    assert_rect_equals();
 }
 
 
@@ -558,7 +572,7 @@ void AM_initVariables(void)
     m_y = plr->mo->y - m_h/2;
     AM_changeWindowLoc();
 
-    print_rect();
+    assert_rect_equals();
 
     // for saving & restoring
     old_m_x = m_x;
@@ -952,7 +966,7 @@ AM_Responder
 
     if (automap != NULL)
     {
-        automap_update_panning(automap, m_paninc.x, m_paninc.y, m_paninc2.x, m_paninc.y);
+        automap_update_panning(automap, m_paninc.x, m_paninc.y, m_paninc2.x, m_paninc2.y);
     }
     return rc;
 
@@ -993,8 +1007,7 @@ void AM_doFollowPlayer(void)
 
     if (f_oldloc.x != plr->mo->x || f_oldloc.y != plr->mo->y)
     {
-	// m_x = FTOM(MTOF(plr->mo->x)) - m_w/2;
-	// m_y = FTOM(MTOF(plr->mo->y)) - m_h/2;
+    fprintf(stderr, "AM_doFollowPlayer\n");
     m_x = plr->mo->x - m_w / 2;
     m_y = plr->mo->y - m_h / 2;
 	m_x2 = m_x + m_w;
@@ -1002,8 +1015,7 @@ void AM_doFollowPlayer(void)
 	f_oldloc.x = plr->mo->x;
 	f_oldloc.y = plr->mo->y;
     automap_follow_player(automap, plr->mo->x, plr->mo->y);
-    fprintf(stderr, "AM_doFollowPlayer\n");
-    print_rect();
+    assert_rect_equals();
 
 	//  m_x = FTOM(MTOF(plr->mo->x - m_w/2));
 	//  m_y = FTOM(MTOF(plr->mo->y - m_h/2));
@@ -1063,8 +1075,10 @@ void AM_Ticker (void)
     // [crispy] required for AM_rotatePoint()
     if (crispy->automaprotate)
     {
-	mapcenter.x = m_x + m_w / 2;
-	mapcenter.y = m_y + m_h / 2;
+    int64_t x, y, width, height;
+    automap_get_rect(automap, &x, &y, &width, &height);
+	mapcenter.x = x + width / 2;
+	mapcenter.y = y + height / 2;
 	// [crispy] keep the map static in overlay mode
 	// if not following the player
 	if (!(!followplayer && crispy->automapoverlay))
@@ -1120,37 +1134,41 @@ AM_clipMline
 
     
     // do trivial rejects and outcodes
-    if (ml->a.y > m_y2)
+    int64_t x, y, width, height;
+    automap_get_rect(automap, &x, &y, &width, &height);
+    int64_t x2 = x + width;
+    int64_t y2 = y + height;
+    if (ml->a.y > y2)
 	outcode1 = TOP;
-    else if (ml->a.y < m_y)
+    else if (ml->a.y < y)
 	outcode1 = BOTTOM;
 
-    if (ml->b.y > m_y2)
+    if (ml->b.y > y2)
 	outcode2 = TOP;
-    else if (ml->b.y < m_y)
+    else if (ml->b.y < y)
 	outcode2 = BOTTOM;
     
     if (outcode1 & outcode2)
 	return false; // trivially outside
 
-    if (ml->a.x < m_x)
+    if (ml->a.x < x)
 	outcode1 |= LEFT;
-    else if (ml->a.x > m_x2)
+    else if (ml->a.x > x2)
 	outcode1 |= RIGHT;
     
-    if (ml->b.x < m_x)
+    if (ml->b.x < x)
 	outcode2 |= LEFT;
-    else if (ml->b.x > m_x2)
+    else if (ml->b.x > x2)
 	outcode2 |= RIGHT;
     
     if (outcode1 & outcode2)
 	return false; // trivially outside
 
     // transform to frame-buffer coordinates.
-    fl->a.x = CXMTOF(ml->a.x);
-    fl->a.y = CYMTOF(ml->a.y);
-    fl->b.x = CXMTOF(ml->b.x);
-    fl->b.y = CYMTOF(ml->b.y);
+    fl->a.x = CXMTOF(ml->a.x, x);
+    fl->a.y = CYMTOF(ml->a.y, y);
+    fl->b.x = CXMTOF(ml->b.x, x);
+    fl->b.y = CYMTOF(ml->b.y, y);
 
     DOOUTCODE(outcode1, fl->a.x, fl->a.y);
     DOOUTCODE(outcode2, fl->b.x, fl->b.y);
@@ -1467,19 +1485,22 @@ void AM_drawGrid(int color)
     mline_t ml;
 
     // Figure out start of vertical gridlines
+    int64_t m_x, m_y, m_width, m_height;
+    automap_get_rect(automap, &m_x, &m_y, &m_width, &m_height);
+
     start = m_x;
     if (crispy->automaprotate)
     {
-	start -= m_h / 2;
+	start -= m_height / 2;
     }
     // [crispy] fix losing grid lines near the automap boundary
     if ((start-bmaporgx)%(MAPBLOCKUNITS<<FRACBITS))
 	start += // (MAPBLOCKUNITS<<FRACBITS)
 	    - ((start-bmaporgx)%(MAPBLOCKUNITS<<FRACBITS));
-    end = m_x + m_w;
+    end = m_x + m_width;
     if (crispy->automaprotate)
     {
-	end += m_h / 2;
+	end += m_height / 2;
     }
 
     // draw vertical gridlines
@@ -1489,11 +1510,11 @@ void AM_drawGrid(int color)
 	ml.b.x = x;
 	// [crispy] moved here
 	ml.a.y = m_y;
-	ml.b.y = m_y+m_h;
+	ml.b.y = m_y+m_height;
 	if (crispy->automaprotate)
 	{
-	    ml.a.y -= m_w / 2;
-	    ml.b.y += m_w / 2;
+	    ml.a.y -= m_width / 2;
+	    ml.b.y += m_width / 2;
 	    AM_rotatePoint(&ml.a);
 	    AM_rotatePoint(&ml.b);
 	}
@@ -1504,16 +1525,16 @@ void AM_drawGrid(int color)
     start = m_y;
     if (crispy->automaprotate)
     {
-	start -= m_w / 2;
+	start -= m_width / 2;
     }
     // [crispy] fix losing grid lines near the automap boundary
     if ((start-bmaporgy)%(MAPBLOCKUNITS<<FRACBITS))
 	start += // (MAPBLOCKUNITS<<FRACBITS)
 	    - ((start-bmaporgy)%(MAPBLOCKUNITS<<FRACBITS));
-    end = m_y + m_h;
+    end = m_y + m_height;
     if (crispy->automaprotate)
     {
-	end += m_w / 2;
+	end += m_width / 2;
     }
 
     // draw horizontal gridlines
@@ -1523,11 +1544,11 @@ void AM_drawGrid(int color)
 	ml.b.y = y;
 	// [crispy] moved here
 	ml.a.x = m_x;
-	ml.b.x = m_x + m_w;
+	ml.b.x = m_x + m_width;
 	if (crispy->automaprotate)
 	{
-	    ml.a.x -= m_h / 2;
-	    ml.b.x += m_h / 2;
+	    ml.a.x -= m_height / 2;
+	    ml.b.x += m_height / 2;
 	    AM_rotatePoint(&ml.a);
 	    AM_rotatePoint(&ml.b);
 	}
@@ -1975,8 +1996,10 @@ void AM_drawMarks(void)
 	    {
 		AM_rotatePoint(&pt);
 	    }
-	    fx = (flipscreenwidth[CXMTOF(pt.x)] >> crispy->hires) - 1 - WIDESCREENDELTA;
-	    fy = (CYMTOF(pt.y) >> crispy->hires) - 2;
+        int64_t x, y, width, height;
+        automap_get_rect(automap, &x, &y, &width, &height);
+	    fx = (flipscreenwidth[CXMTOF(pt.x, x)] >> crispy->hires) - 1 - WIDESCREENDELTA;
+	    fy = (CYMTOF(pt.y, y) >> crispy->hires) - 2;
 	    if (fx >= f_x && fx <= (f_w >> crispy->hires) - w && fy >= f_y && fy <= (f_h >> crispy->hires) - h)
 		V_DrawPatch(fx, fy, marknums[i]);
 	}

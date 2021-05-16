@@ -42,3 +42,9 @@ void automap_follow_player(struct Automap *automap,
                            int32_t player_position_y);
 
 void automap_print_rect(const struct Automap *automap);
+
+void automap_get_rect(const struct Automap *automap,
+                      int64_t *x,
+                      int64_t *y,
+                      int64_t *width,
+                      int64_t *height);

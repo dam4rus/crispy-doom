@@ -27,12 +27,12 @@ impl Automap {
     pub fn new(
         player_position: &Point2D<i32, UnknownUnit>,
         window_size: &FrameBufferSize,
-        scale_frame_buffer_to_map: FrameBufferFixedPoint,
+        frame_buffer_scale: FrameBufferFixedPoint,
     ) -> Self {
-        let width = scale_frame_buffer_to_map.transform_to_map(window_size.width);
-        let height = scale_frame_buffer_to_map.transform_to_map(window_size.height);
-        let x = player_position.x as i64 - width / 2;
-        let y = player_position.y as i64 - height / 2;
+        let width = frame_buffer_scale.transform_to_map(window_size.width);
+        let height = frame_buffer_scale.transform_to_map(window_size.height);
+        let x = player_position.x as i64 - (width / 2);
+        let y = player_position.y as i64 - (height / 2);
         let position = MapPoint::new(x, y);
         let size = MapSize::new(width, height);
         let rect = MapRect::new(position, size);
@@ -82,8 +82,6 @@ impl Automap {
 
             new_position
         };
-
-        // println!("{:#?}", self.rect);
     }
 
     pub fn rotate(&mut self, point: &MapVector, map_angle: Angle) -> MapVector {
@@ -99,14 +97,11 @@ impl Automap {
     pub fn activate_new_scale(
         &mut self,
         window_size: &FrameBufferSize,
-        scale_frame_buffer_to_map: FrameBufferFixedPoint,
+        frame_buffer_scale: FrameBufferFixedPoint,
     ) {
-        let translate_vector = MapVector::new(self.rect.size.width / 2, self.rect.size.height / 2);
-        self.rect.origin += translate_vector;
-        self.rect.size = scale_frame_buffer_to_map.transform_size_to_map(window_size);
-        self.rect.origin -= translate_vector;
-
-        // println!("rect after scale: {:#?}", self.rect)
+        self.rect.origin += self.rect.size.to_vector() / 2;
+        self.rect.size = frame_buffer_scale.transform_size_to_map(window_size);
+        self.rect.origin -= self.rect.size.to_vector() / 2;
     }
 
     pub fn update_panning(
@@ -126,9 +121,8 @@ impl Automap {
         let position = if !self.follow_player {
             self.old_rect.origin
         } else {
-            let player_position = MapPoint::new(player_position.x as i64, player_position.y as i64);
-            let old_size = &self.old_rect.size;
-            let translate_vector = MapVector::new(old_size.width / 2, old_size.height / 2);
+            let player_position = player_position.cast().cast_unit();
+            let translate_vector = self.old_rect.size.to_vector() / 2;
             player_position - translate_vector
         };
 
@@ -148,8 +142,8 @@ impl Automap {
         //     &scale_map_to_frame_buffer.transform_point_to_frame_buffer(
         //         &MapPoint::new(player_position.x as i64, player_position.y as i64)));
 
-        let position = MapPoint::new(player_position.x as i64, player_position.y as i64);
-        let translate_vector = MapVector::new(self.rect.size.width / 2, self.rect.size.height / 2);
+        let position = player_position.cast().cast_unit();
+        let translate_vector = self.rect.size.to_vector() / 2;
 
         self.rect.origin = position - translate_vector;
         self.follower_old_position = Some(*player_position);

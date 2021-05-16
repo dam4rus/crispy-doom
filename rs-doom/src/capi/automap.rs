@@ -124,3 +124,16 @@ pub unsafe extern "C" fn automap_print_rect(automap: *const Automap) {
 
     println!("{:#?}", automap.rect());
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn automap_get_rect(automap: *const Automap, x: *mut i64, y: *mut i64, width: *mut i64, height: *mut i64) {
+    let rect = automap
+        .as_ref()
+        .expect("null passed as Automap")
+        .rect();
+    
+    *x = rect.origin.x;
+    *y = rect.origin.y;
+    *width = rect.size.width;
+    *height = rect.size.height;
+}
