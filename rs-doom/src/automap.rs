@@ -7,19 +7,33 @@ use crate::{
     tables::{fine_cosine, fine_sine, Angle},
 };
 
-/* Automap implementation */
+// Automap implementation for Doom
+// It can be toggled by "tab" and follows the player by default
+// Pressing "f" will unfollow the player and it can be panned by the arrow buttons
+// It can be zoomed in and out with the mouse wheel
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Automap {
-    active: bool,
-    follow_player: bool,
-    follower_old_position: Option<Point2D<i32, UnknownUnit>>,
+    // Toggles whether the automap follows the player. Can be toggled with "f" by default
+    follows_player: bool,
+    // When the map is following the player the last position of the player is cached to skip logic
+    // if the player hasn't moved at all
+    follow_old_position: Option<Point2D<i32, UnknownUnit>>,
+    // TODO: Implement
     clock: i32,
+    // TODO: Implement
     light_level: i32,
+    // The value the map should be panned. Set by using the keyboard arrow keys
+    // TODO: Maybe it can be merged to a single pan_increase?
     pan_increase_keyboard: Option<MapVector>,
-    pan_increase_mouse: Option<MapVector>, // TODO wtf?
+    // The value the map should be panned. Set by moving the mouse
+    pan_increase_mouse: Option<MapVector>,
+    // TODO: Implement
     frame_zoom_multiplier: FrameBufferFixedPoint,
+    // TODO: Implement
     map_zoom_multiplier: MapFixedPoint,
+    // The rect of the automap
     rect: MapRect,
+    // Cached position and size of the automap
     old_rect: MapRect,
 }
 
@@ -37,9 +51,8 @@ impl Automap {
         let size = MapSize::new(width, height);
         let rect = MapRect::new(position, size);
         Self {
-            active: true,
-            follow_player: true,
-            follower_old_position: None,
+            follows_player: true,
+            follow_old_position: None,
             clock: 0,
             light_level: 0,
             pan_increase_keyboard: None,
@@ -58,8 +71,8 @@ impl Automap {
             (Some(pan_keyboard), Some(pan_mouse)) => pan_keyboard + pan_mouse,
         };
 
-        self.follow_player = false;
-        self.follower_old_position = None;
+        self.follows_player = false;
+        self.follow_old_position = None;
 
         if rotate {
             pan = self.rotate(&pan, map_angle);
@@ -118,7 +131,7 @@ impl Automap {
     }
 
     pub fn restore_rect(&mut self, player_position: &Point2D<i32, UnknownUnit>) {
-        let position = if !self.follow_player {
+        let position = if !self.follows_player {
             self.old_rect.origin
         } else {
             let player_position = player_position.cast().cast_unit();
@@ -130,7 +143,7 @@ impl Automap {
     }
 
     pub fn follow_player(&mut self, player_position: &Point2D<i32, UnknownUnit>) {
-        if let Some(old_position) = self.follower_old_position {
+        if let Some(old_position) = self.follow_old_position {
             if old_position == *player_position {
                 return;
             }
@@ -146,7 +159,7 @@ impl Automap {
         let translate_vector = self.rect.size.to_vector() / 2;
 
         self.rect.origin = position - translate_vector;
-        self.follower_old_position = Some(*player_position);
+        self.follow_old_position = Some(*player_position);
     }
 
     pub fn rect(&self) -> &MapRect {

@@ -3,6 +3,7 @@ pub type Angle = u32;
 const ANGLETOFINESHIFT: i32 = 19;
 const FINEANGLES: i32 = 8192;
 
+// Table of sine values in fixed-point of angles
 const FINESINE: [i32; 10240] = [
     25, 75, 125, 175, 226, 276, 326, 376, 427, 477, 527, 578, 628, 678, 728, 779, 829, 879, 929,
     980, 1030, 1080, 1130, 1181, 1231, 1281, 1331, 1382, 1432, 1482, 1532, 1583, 1633, 1683, 1733,
@@ -812,10 +813,12 @@ fn angle_to_index(angle: Angle) -> usize {
     (angle >> ANGLETOFINESHIFT) as usize
 }
 
+// Get the fixed-point representation of the angle's sine 
 pub fn fine_sine(angle: Angle) -> i32 {
     FINESINE[angle_to_index(angle)]
 }
 
+// Get the fixed-point representation of the angle's cosine
 pub fn fine_cosine(angle: Angle) -> i32 {
     FINESINE[(FINEANGLES / 4) as usize + angle_to_index(angle)]
 }

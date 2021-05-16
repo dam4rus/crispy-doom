@@ -10,7 +10,6 @@ edition = "2018"
 euclid = "0.22.1"
 
 [build-dependencies]
-bindgen = "0.58.1"
 cbindgen = "0.19.0"
 
 [lib]

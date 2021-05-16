@@ -8,26 +8,25 @@ use crate::coords::{
     FrameBufferPoint, FrameBufferSize, FrameBufferUnit, MapPoint, MapSize, MapUnit,
 };
 
-/* FixedPoint arithmetic */
+// A strongly typed representation of a fixed-point. The generic parameter is the unit type.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct FixedPoint<T>(pub i32, PhantomData<T>);
+pub struct FixedPoint<U>(pub i32, PhantomData<U>);
 
-pub type FrameBufferFixedPoint = FixedPoint<FrameBufferUnit>;
-pub type MapFixedPoint = FixedPoint<MapUnit>;
-
-impl<T> FixedPoint<T> {
+impl<U> FixedPoint<U> {
+    // The factor of fixed-points used in Doom
     const FRACTION_BITS: i32 = 16;
 
+    // The value of 1.0
     pub fn unit() -> Self {
         Self(1 << Self::FRACTION_BITS, PhantomData)
     }
 }
 
-impl<T> Mul<FixedPoint<T>> for FixedPoint<T> {
+impl<U> Mul<FixedPoint<U>> for FixedPoint<U> {
     type Output = Self;
 
-    fn mul(self, rhs: FixedPoint<T>) -> Self::Output {
+    fn mul(self, rhs: FixedPoint<U>) -> Self::Output {
         Self::from(
             i32::try_from((self.0 as i64 * rhs.0 as i64) >> Self::FRACTION_BITS)
                 .expect("multiplication of fixed points wouldn't fit into i32"),
@@ -35,10 +34,10 @@ impl<T> Mul<FixedPoint<T>> for FixedPoint<T> {
     }
 }
 
-impl<T> Div<FixedPoint<T>> for FixedPoint<T> {
+impl<U> Div<FixedPoint<U>> for FixedPoint<U> {
     type Output = Self;
 
-    fn div(self, rhs: FixedPoint<T>) -> Self::Output {
+    fn div(self, rhs: FixedPoint<U>) -> Self::Output {
         let result = if (self.0.abs() >> 14) >= rhs.0.abs() {
             if (self.0 ^ rhs.0) < 0 {
                 i32::MIN
@@ -53,17 +52,20 @@ impl<T> Div<FixedPoint<T>> for FixedPoint<T> {
     }
 }
 
-impl<T> From<i32> for FixedPoint<T> {
+impl<U> From<i32> for FixedPoint<U> {
     fn from(value: i32) -> Self {
         Self(value, PhantomData)
     }
 }
 
-impl<T> Into<i32> for FixedPoint<T> {
+impl<U> Into<i32> for FixedPoint<U> {
     fn into(self) -> i32 {
         self.0
     }
 }
+
+pub type FrameBufferFixedPoint = FixedPoint<FrameBufferUnit>;
+pub type MapFixedPoint = FixedPoint<MapUnit>;
 
 impl FrameBufferFixedPoint {
     pub fn transform_to_map(&self, value: i32) -> i64 {
