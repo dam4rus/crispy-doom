@@ -80,7 +80,13 @@ add_library(doom STATIC
             st_stuff.c      st_stuff.h
             wi_stuff.c      wi_stuff.h)
 
-target_link_directories(doom PUBLIC "../../target/debug")
 target_include_directories(doom PRIVATE "../" "${CMAKE_CURRENT_BINARY_DIR}/../../")
 target_link_libraries(doom PRIVATE SDL2::SDL2 SDL2::mixer SDL2::net)
+
+add_custom_target(rs_doom ALL
+    COMMAND cargo build
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/../.."
+)
+
+target_link_directories(doom PUBLIC "../../target/debug")
 target_link_libraries(doom INTERFACE -ldl -lpthread rs_doom)
